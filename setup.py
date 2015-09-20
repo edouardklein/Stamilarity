@@ -6,8 +6,8 @@ setup(
     description = "Quantify the statistical similarity of experimental samples",
     author = "Edouard Klein",
     author_email = "edou -at- rdklein.fr",
-    url = "http://rdklein.fr/software/stamilarity",
-    download_url = "http://rdklein.fr/software/stamilarity/stamilarity-0.0.0.tar.gz",
+    url = "https://stamilarity.readthedocs.org",
+    download_url = "https://github.com/edouardklein/stamilarity",
     keywords = ["statistics"],
     classifiers = [
         "Programming Language :: Python :: 3 :: Only",
@@ -27,7 +27,7 @@ Stamilarity : quantify the statistical similarity of experimental samples
 -------------------------------------------------------------------------
 
 
-    Please refer to https://stamilarity.readthedocs.org FIXME check that.
+    Please refer to https://stamilarity.readthedocs.org.
 """
 )
 
