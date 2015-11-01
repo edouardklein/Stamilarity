@@ -127,6 +127,21 @@ def similar(*args, distrib=None, continuous=False):
     >>> p > .05  # Detect a unfair dice
     False
 
+    When one category is vastly underrepresented (less than 5%), the user
+    is warned.
+
+    >>> small_cat_sample = [random.choice(range(7)) for i in range(100)]
+    >>> p = stamilarity.similar(small_cat_sample, distrib={0: .16,\
+                                              1: .16,\
+                                              2: .16,\
+                                              3: .16,\
+                                              4: .16,\
+                                              5: .16,\
+                                              6: .04})
+    Some frequencies are too small, results of chisquare may be innacurate.
+    >>> p > .05
+    False
+
     **Continuous distributions**
 
     Compare two samples from the same continuous distribution:
@@ -188,6 +203,11 @@ def similar(*args, distrib=None, continuous=False):
     p: float
         Return the p-value of the hypothesis that the sample are drawn
         from the same distribution.
+
+    See also
+    =========
+
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.chisquare.html#scipy.stats.chisquare
 
     References
     ============
@@ -254,6 +274,10 @@ def run_chi_squared(sample, distrib):
     sample was sampled from empirical distribution distrib'''
     actual = Counter(sample)
     expected = {k: distrib[k]*len(sample) for k in distrib}
+    if any(np.array(list(actual.values())) < 5) or\
+       any(np.array(list(expected.values())) < 5):
+        print("Some frequencies are too small, results of chisquare "
+              "may be innacurate.")
     _, answer = chisquare([actual[k] for k in sorted(distrib.keys())],
                           [expected[k] for k in sorted(distrib.keys())])
     return answer

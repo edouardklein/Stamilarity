@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
     name = "stamilarity",
     packages = ["stamilarity"],
-    version = "0.0.4",
+    version = "0.0.5",
     description = "Quantify the statistical similarity of experimental samples",
     author = "Edouard Klein",
     author_email = "edou -at- rdklein.fr",
