@@ -5,9 +5,9 @@ distribution.
 .. autofunction:: similar
 '''
 
-from scipy.stats import binom_test
-from scipy.stats import chisquare
+from scipy.stats import binom_test, chisquare, ks_2samp
 from collections import Counter, defaultdict
+import itertools
 import numpy as np
 
 
@@ -35,7 +35,8 @@ def divide_in_groups(sample, bins=10, min_card=5):
                                    key=lambda i: sum(indices[i]))[:2]
         others = [indices[i] for i in range(len(indices))
                   if i not in two_smallest_bins]
-        mashed_up = indices[two_smallest_bins[0]] | indices[two_smallest_bins[1]]
+        mashed_up = indices[two_smallest_bins[0]] |\
+            indices[two_smallest_bins[1]]
         indices = [mashed_up] + others
     return indices
 
@@ -55,12 +56,9 @@ def similar(*args, distrib=None, continuous=False):
     the same distribution.
 
     Unless distrib is given, we use the union of all the samples as the
-    theoretical distribution in our test's hypothesis.
+    theoretical discrete distribution in our test's hypothesis.
 
-    If continuous is True,
-
-    ..todo::
-    Write code that handles continuous distributions
+    If continuous is True, we use a Kolmogorov Smirnov test.
 
     If continuous is False, samples are treated as drawn from a categorical
     random variable.
@@ -69,11 +67,14 @@ def similar(*args, distrib=None, continuous=False):
     test. Otherwise we run a \Xi^2.
 
     Examples
-    --------
+    ==========
+
     >>> import random
     >>> import stamilarity
 
-    Compare two samples from the same binary distribution :
+    **Binary distributions**
+
+    Compare two samples from the same binary distribution:
 
     >>> fair_coin1 = [1 if random.random()>.5 else 0 for i in range(10000)]
     >>> random.seed(123)
@@ -82,6 +83,22 @@ def similar(*args, distrib=None, continuous=False):
     >>> p > .05  # Fair coins
     True
 
+    Compare a sample against a theoretical binary distribution:
+
+    >>> random.seed(789)
+    >>> biased_coin = [1 if random.random()>.6 else 0 for i in range(10000)]
+    >>> p = stamilarity.similar(biased_coin, distrib={1: .4, 0: .6})
+    >>> p > .05
+    True
+
+    Compare two dissimilar binary samples:
+
+    >>> p = stamilarity.similar(fair_coin1, biased_coin)
+    >>> p > .05  # Detect a biased coin
+    False
+
+    **Categorical distributions**
+
     Compare two samples from the same categorical distribution :
 
     >>> fair_dice1 = [random.choice(range(6)) for i in range(10000)]
@@ -89,14 +106,6 @@ def similar(*args, distrib=None, continuous=False):
     >>> fair_dice2 = [random.choice(range(6)) for i in range(10000)]
     >>> p = stamilarity.similar(fair_dice1, fair_dice2)
     >>> p > .05  # Fair dices
-    True
-
-    Compare a sample against a theoretical binary distribution:
-
-    >>> random.seed(789)
-    >>> biased_coin = [1 if random.random()>.6 else 0 for i in range(10000)]
-    >>> p = stamilarity.similar(biased_coin, distrib={1: .4, 0: .6})
-    >>> p > .05
     True
 
     Compare a sample agains a theoretical categorical distribution:
@@ -112,21 +121,59 @@ def similar(*args, distrib=None, continuous=False):
     >>> p > .05
     True
 
-    Compare two dissimilar binary samples
-
-    >>> p = stamilarity.similar(fair_coin1, biased_coin)
-    >>> p > .05  # Detect a biased coin
-    False
-
     Compare two dissimilar categorical samples:
 
     >>> p = stamilarity.similar(fair_dice1, biased_dice)
     >>> p > .05  # Detect a unfair dice
     False
 
+    **Continuous distributions**
+
+    Compare two samples from the same continuous distribution:
+
+    >>> sample1 = [random.random() for i in range(10000)]
+    >>> random.seed(4242)
+    >>> sample2 = [random.random() for i in range(10000)]
+    >>> p = stamilarity.similar(sample1, sample2, continuous=True)
+    >>> p > .05  # Same distrib
+    True
+
+    Compare multiple samples from the sample continuous distribution:
+
+    >>> sample3 = [random.random() for i in range(10000)]
+    >>> sample4 = [random.random() for i in range(10000)]
+    >>> p = stamilarity.similar(sample1, sample2, sample3,
+    ... sample4, continuous=True)
+    >>> p > .05  # Same distrib
+    True
+
+    Comparing a sample against a theoretical distribution is
+    not implemented yet.
+
+    .. todo :: Do it.
+
+    Compare two dissimilar samples
+
+    >>> def bias():
+    ...    a = random.random()
+    ...    if a < .1:
+    ...        a = random.random()
+    ...    return a
+    ...
+    >>> biased_sample = [bias() for i in range(10000)]
+    >>> p = stamilarity.similar(sample1, biased_sample, continuous=True)
+    >>> p > .05  # Detect discrepancy
+    False
+
+    Comapring multiple samples among which one is biased
+
+    >>> p = stamilarity.similar(sample1, sample2, sample3, sample4,
+    ... biased_sample, continuous=True)
+    >>> p > .05  # Detect anomay
+    False
 
     Parameters
-    ----------
+    ===========
     args : iterables
         The experimental samples
     distrib: dict or None
@@ -136,39 +183,57 @@ def similar(*args, distrib=None, continuous=False):
         If true, use a statistical tool that works with continuous
         distributions.
 
-    Return
-    ------
+    Returns
+    ========
     p: float
-        Return the p-value of the hypothesis that the sample are drawn from the
-        same distribution.
+        Return the p-value of the hypothesis that the sample are drawn
+        from the same distribution.
 
     References
-    ----------
+    ============
     P-values are very often a misunderstood concept. Please make sure you
-    know how to interpret the results. A good starting point is :
-    http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2895822/
+    know how to interpret the results. A good starting point is [1]_.
+
+    .. [1] http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2895822/
     '''
     assert len(args) >= 2 or len(args) == 1 and distrib, """Strictly more than
     one sample is required"""
-    if not distrib and not continuous:
-        distrib = empirical_discrete_distrib(*args)
-    elif not distrib and continuous:
+    if not distrib and continuous:
+        return similar_continuous(*args)
+    elif distrib and continuous:
         raise Exception('Not implemented yet')
-    sampled_from_distrib = lambda sample: sampled_from(sample, distrib,
-                                                       continuous)
+    elif not distrib and not continuous:
+        distrib = empirical_discrete_distrib(*args)
+        # Fallthrough
+    # distrib and not continuous jumps here directly
+    sampled_from_distrib = lambda sample: \
+        sampled_from_discrete(sample, distrib)
     return min(map(sampled_from_distrib, args))
 
 
-def sampled_from(sample, distrib, continuous=False):
+def similar_continuous(*args):
+    '''Return the p-value of the hypothesis that the given samples from a
+    continuous distribution are similar'''
+    # We use ks_2samp which test samples two by two, so we have
+    # to test every pair
+    if len(args) > 2:
+        return min([similar_continuous(*pair)
+                    for pair in itertools.combinations(args, 2)])
+    else:
+        # disregard ks stat, acquire p-value
+        return ks_2samp(args[0], args[1])[1]
+
+
+def sampled_from_discrete(sample, distrib):
     '''Return the p-value of the hypothesis that sample was sampled from
     distrib.'''
-    assert continuous or set(sample) <= set(distrib.keys())
-    if not continuous and len(distrib.keys()) == 2:
+    assert set(sample) <= set(distrib.keys())
+    if len(distrib.keys()) == 2:
         return run_binomial_test(sample, distrib)
-    elif not continuous and len(set(distrib)) > 2:
+    elif len(set(distrib)) > 2:
         return run_chi_squared(sample, distrib)
-    else:  # continuous
-        raise Exception('Not implemented yet')
+    else:  # Random variable only ever takes one value
+        raise Exception('Random variable is not random')
 
 
 def run_binomial_test(sample, distrib, assymmetry_threshold=0.01):
