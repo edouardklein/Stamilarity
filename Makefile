@@ -9,3 +9,6 @@ test:
 lint:
 	flake8 stamilarity/stamilarity.py
 
+upload: doc test lint
+	git push
+	python setup.py sdist upload -r pypi
