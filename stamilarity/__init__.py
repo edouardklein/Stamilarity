@@ -112,7 +112,7 @@ def similar(*args, distrib=None, continuous=False):
 
     >>> biased_dice = [random.choice(range(6)) if random.random()>.1 else 0\
                        for i in range(10000)]
-    >>> p = stamilarity.similar(biased_dice, {0: .16,\
+    >>> p = stamilarity.similar(biased_dice, distrib={0: .25,\
                                               1: .15,\
                                               2: .15,\
                                               3: .15,\
